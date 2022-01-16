@@ -59,7 +59,7 @@ class BouncyBalls : View {
         mHeight = MeasureSpec.getSize(heightMeasureSpec)
         initCoordinatesY = mHeight / 2
         initCoordinatesX = mWidth / 2
-        radius = mWidth / 5F / ballsCount
+        radius = mWidth / 3F / ballsCount
         initBalls(ballsCount)
         setMeasuredDimension(mWidth, mHeight)
     }
@@ -81,6 +81,7 @@ class BouncyBalls : View {
                 jobMoveTo?.cancel()
                 jobFollow?.cancel()
                 jobReset?.cancel()
+                // jobMoveDamping?.cancel()
                 state = STATE_FOLLOW_ANI
                 listBalls.forEach { ball ->
                     moveTo(ball.pos, ball.mX, ball.mY, event.x.toInt(), event.y.toInt())
@@ -117,14 +118,36 @@ class BouncyBalls : View {
         listBalls[0].mX = newX
         listBalls[0].mY = newY
         jobFollow = CoroutineScope(Dispatchers.Default).launch {
-            listBalls.forEach { ball ->
+            for (i in 1..ballsCount - 1) {
+                val ball = listBalls[i]
                 delay(TIME_CHAIN_STEP_DELAY * 2)
                 ball.mX = newX
                 ball.mY = newY
+                //     moveWithDamping(ball,newX,newY)
                 invalidate()
             }
+//            listBalls.forEach { ball ->
+//
+//            }
         }
     }
+//    private var jobMoveDamping : Job? = null
+//    private fun moveWithDamping(ball: Ball, newX: Int, newY: Int) {
+//       jobMoveDamping =  CoroutineScope(Dispatchers.Default).launch {
+//            for (i in 1..4) {
+//                val stepX = (newX - ball.mX) / 10
+//                val stepY = (newY - ball.mY) / 10
+//                Log.e("tag2", "${ball.pos} $newX  ${ball.mX} $stepX")
+//                delay(200L)
+//                ball.mX += (stepX*(5-i))
+//                ball.mY += (stepY*(5-i))
+//                invalidate()
+//            }
+//            delay(50L)
+//            ball.mX = newX
+//            ball.mY = newY
+//        }
+//    }
 
     private fun drawBalls(canvas: Canvas?, ball: Ball) {
         mPaintBall.setColor(ball.colorBall)
@@ -138,9 +161,9 @@ class BouncyBalls : View {
         if (state == STATE_AUTO_ANI) {
             val firstBall = listBalls[0]
             firstBall.mY += DEFAULT_SPEED * (firstBall.direction)
-            if (abs(firstBall.mY - initCoordinatesY / 2.toFloat()) < DEFAULT_SPEED)
+            if (abs(firstBall.mY - 3 * initCoordinatesY / 4.toFloat()) < DEFAULT_SPEED)
                 firstBall.direction = 1
-            if (abs(firstBall.mY - 3 * initCoordinatesY / 2) < DEFAULT_SPEED)
+            if (abs(firstBall.mY - 5 * initCoordinatesY / 4) < DEFAULT_SPEED)
                 firstBall.direction = -1
             //follow chain
             for (i in 1 until listBalls.size) {
@@ -199,7 +222,7 @@ class BouncyBalls : View {
         const val STATE_RESET_ANI = 3
         const val TIME_CHAIN_STEP_DELAY = 50L
         const val DEFAULT_BALLS_COUNT = 5
-        const val DEFAULT_SPEED = 30
+        const val DEFAULT_SPEED = 25
         const val RESET_TIME = 1000L
         const val MOVE_STEP_DELAY = 20L
         val listColor = mutableListOf<Int>(

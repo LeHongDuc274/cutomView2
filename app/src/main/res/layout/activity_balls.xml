@@ -10,6 +10,6 @@
 <com.example.balls.customview.BouncyBalls
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    app:ballsCount="7"
+    app:ballsCount="10"
     android:id="@+id/bouncy_balls"/>
 </LinearLayout>

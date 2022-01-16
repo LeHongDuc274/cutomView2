@@ -1,5 +1,6 @@
 package com.example.balls
 
+import android.annotation.SuppressLint
 import android.content.ClipData
 import android.content.ClipDescription
 import android.graphics.Color
@@ -8,138 +9,170 @@ import androidx.appcompat.app.AppCompatActivity
 import android.os.Bundle
 import android.util.Log
 import android.view.DragEvent
+import android.view.MotionEvent.*
 import android.view.View
 import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.Toast
 import androidx.annotation.RequiresApi
 import androidx.constraintlayout.widget.ConstraintLayout
+import androidx.dynamicanimation.animation.DynamicAnimation
+import androidx.dynamicanimation.animation.SpringAnimation
+import androidx.dynamicanimation.animation.SpringForce
+import androidx.dynamicanimation.animation.SpringForce.DAMPING_RATIO_LOW_BOUNCY
+import androidx.dynamicanimation.animation.SpringForce.STIFFNESS_LOW
+import com.example.balls.databinding.ActivityMainBinding
+import android.view.ViewTreeObserver
+import android.view.ViewTreeObserver.OnGlobalLayoutListener
+import com.example.balls.customview.BouncyBalls
+import kotlinx.coroutines.*
+import java.lang.Math.abs
+
 
 class MainActivity : AppCompatActivity() {
+
+    companion object {
+        const val DELTA_PIXELS = 300
+        const val UPDATE_TIME_MS = 30L
+        const val RESET_TIME_MS = 2000L
+        const val STEP_UPDATE_VALUE_PIXELS = 50
+    }
+
+    private var _binding: ActivityMainBinding? = null
+    private val binding get() = _binding!!
+    private val listAnimX = arrayListOf<SpringAnimation>()
+    private val listAnimY = arrayListOf<SpringAnimation>()
+    private val listView = arrayListOf<ImageView>()
+    private val beginLocal = arrayListOf<Pair<Int, Int>>()
+    private var centerX = 0
+    private var centerY = 0
+    private var jobAutoAnim: Job? = null
+    private var jobReset: Job? = null
+    private var auto = true
 
     @RequiresApi(Build.VERSION_CODES.N)
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        setContentView(R.layout.activity_main)
+        _binding = ActivityMainBinding.inflate(layoutInflater)
+        setContentView(binding.root)
+        bindingView()
+        initAnim()
+        setupAnim()
+        startAutoAnim()
+    }
 
-        val imageView = findViewById<ImageView>(R.id.iv)
-        imageView.setOnLongClickListener { v->
-            val item = ClipData.Item(v.tag as? CharSequence)
-            val dragData = ClipData(
-                v.tag as? CharSequence,
-                arrayOf(ClipDescription.MIMETYPE_TEXT_PLAIN),
-                item)
-
-            // Instantiate the drag shadow builder.
-            val myShadow = View.DragShadowBuilder(v)
-
-            // Start the drag.
-            v.startDragAndDrop(dragData,  // The data to be dragged
-                myShadow,  // The drag shadow builder
-                null,      // No need to use local data
-                0          // Flags (not currently used, set to 0)
-            )
-            true
-        }
-// Set the drag event listener for the View.
-        imageView.setOnDragListener { v, e ->
-
-            // Handles each of the expected events.
-            when (e.action) {
-                DragEvent.ACTION_DRAG_STARTED -> {
-                    // Determines if this View can accept the dragged data.
-                    if (e.clipDescription.hasMimeType(ClipDescription.MIMETYPE_TEXT_PLAIN)) {
-                        // As an example of what your application might do, applies a blue color tint
-                        // to the View to indicate that it can accept data.
-                        (v as? ImageView)?.setColorFilter(Color.BLUE)
-                        v.visibility = View.GONE
-                        // Invalidate the view to force a redraw in the new tint.
-                        v.invalidate()
-
-                        // Returns true to indicate that the View can accept the dragged data.
-                        true
-                    } else {
-                        // Returns false to indicate that, during the current drag and drop operation,
-                        // this View will not receive events again until ACTION_DRAG_ENDED is sent.
-                        false
-                    }
-                }
-                DragEvent.ACTION_DRAG_ENTERED -> {
-                    // Applies a green tint to the View.
-                    (v as? ImageView)?.setColorFilter(Color.GREEN)
-
-                    // Invalidates the view to force a redraw in the new tint.
-                    v.invalidate()
-
-                    // Returns true; the value is ignored.
-                    true
-                }
-
-                DragEvent.ACTION_DRAG_LOCATION ->{
-                    // Ignore the event.
-                    var mX = v.x
-                    var mY = v.y
-                    Log.e("Tag",mX.toString() +" " + mY.toString())
-                    true
-                }
-
-                DragEvent.ACTION_DRAG_EXITED -> {
-                    // Resets the color tint to blue.
-                    (v as? ImageView)?.setColorFilter(Color.BLUE)
-
-                    // Invalidates the view to force a redraw in the new tint.
-                    v.invalidate()
-
-                    // Returns true; the value is ignored.
-                    true
-                }
-                DragEvent.ACTION_DROP -> {
-                    // Gets the item containing the dragged data.
-                    val item: ClipData.Item = e.clipData.getItemAt(0)
-
-                    // Gets the text data from the item.
-                    val dragData = item.text
-
-                    // Displays a message containing the dragged data.
-                    Toast.makeText(this, "Dragged data is $dragData", Toast.LENGTH_LONG).show()
-
-                    // Turns off any color tints.
-                    (v as? ImageView)?.clearColorFilter()
-                    // Invalidates the view to force a redraw.
-                    v.invalidate()
-                    // Returns true. DragEvent.getResult() will return true.
-                    true
-                }
-
-                DragEvent.ACTION_DRAG_ENDED -> {
-                    // Turns off any color tinting.
-                    (v as? ImageView)?.clearColorFilter()
-                    v.visibility = View.VISIBLE
-                    // Invalidates the view to force a redraw.
-                    v.invalidate()
-
-                    // Does a getResult(), and displays what happened.
-                    when (e.result) {
-                        true ->
-                            Toast.makeText(this, "The drop was handled.", Toast.LENGTH_LONG)
-                        else ->
-                            Toast.makeText(this, "The drop didn't work.", Toast.LENGTH_LONG)
-                    }.show()
-                    var mX = v.x
-                    var mY = v.y
-                    Log.e("Tag2",mX.toString() +" " + mY.toString())
-                    // Returns true; the value is ignored.
-                    true
-                }
-                else -> {
-                    // An unknown action type was received.
-                    Log.e(
-                        "DragDrop Example",
-                        "Unknown action type received by View.OnDragListener."
-                    )
-                    false
-                }
+    private fun startAutoAnim() {
+        jobAutoAnim = CoroutineScope(Dispatchers.Main).launch {
+            jobReset?.join()
+            var curX = beginLocal[0].first
+            var curY = beginLocal[0].second
+            val minY = beginLocal[0].second - DELTA_PIXELS
+            //3 * beginLocal[0].second / 4.toFloat()
+            val maxY = beginLocal[0].second + DELTA_PIXELS
+            //5 * beginLocal[0].second / 4
+            var direction = -1
+            while (isActive) {
+                delay(UPDATE_TIME_MS)
+                //curX += 50
+                curY += STEP_UPDATE_VALUE_PIXELS * direction
+                listAnimY[0].animateToFinalPosition(curY.toFloat())
+                if (curY == minY || curY == maxY)
+                    direction = direction * -1
             }
         }
+    }
+
+    @SuppressLint("ClickableViewAccessibility")
+    private fun setupAnim() {
+        addAnimListenner()
+        val firstView = listView[0]
+        binding.rootLayout.setOnTouchListener { view, motionEvent ->
+            when (motionEvent.action) {
+                ACTION_DOWN -> {
+                    auto = false
+                    jobAutoAnim?.cancel()
+                    centerX = firstView.width / 2
+                    centerY = firstView.height / 2
+                    listAnimX[0].animateToFinalPosition(motionEvent.x - centerX)
+                    listAnimY[0].animateToFinalPosition(motionEvent.y - centerY)
+                    Toast.makeText(this, motionEvent.y.toString(), Toast.LENGTH_SHORT).show()
+                }
+
+                ACTION_MOVE -> {
+                    listAnimX[0].animateToFinalPosition(motionEvent.x - centerX)
+                    listAnimY[0].animateToFinalPosition(motionEvent.y - centerY)
+                }
+                ACTION_UP -> {
+                    // removeAnimXListenner()
+                    jobReset = CoroutineScope(Dispatchers.Main).launch {
+                        delay(RESET_TIME_MS)
+                        auto = true
+                        for (i in 1..listAnimX.size) {
+                            delay(UPDATE_TIME_MS)
+                            listAnimX[i - 1].animateToFinalPosition(beginLocal[i - 1].first.toFloat())
+                            listAnimY[i - 1].animateToFinalPosition(beginLocal[i - 1].second.toFloat())
+                        }
+                    }
+                    startAutoAnim()
+                }
+            }
+            return@setOnTouchListener true
+        }
+    }
+
+    private fun addAnimListenner() {
+        for (i in 0 until listAnimX.size - 1) {
+            listAnimX[i].addUpdateListener { _, value, _ ->
+                if (auto == false) {
+                    listAnimX[i + 1].animateToFinalPosition(value)
+                }
+            }
+            listAnimY[i].addUpdateListener { _, value, _ ->
+                listAnimY[i + 1].animateToFinalPosition(value)
+            }
+        }
+    }
+
+    private fun removeAnimXListenner() {
+        for (i in 0 until listAnimX.size - 1) {
+            listAnimX[i].addUpdateListener(null)
+        }
+    }
+
+    private fun bindingView() {
+        listView.apply {
+            add(binding.iv1)
+            add(binding.iv2)
+            add(binding.iv3)
+            add(binding.iv4)
+            add(binding.iv5)
+        }
+        val rawX = resources.displayMetrics.widthPixels / 5 / 2
+        val rawY = resources.displayMetrics.heightPixels / 2
+        repeat(5) { i ->
+            beginLocal.add(Pair(rawX * (9 - 2 * i), rawY))
+        }
+    }
+
+    private fun initAnim() {
+        listView.forEach { view ->
+            listAnimX.add(createSpringAnim(view, DynamicAnimation.X))
+            listAnimY.add(createSpringAnim(view, DynamicAnimation.Y))
+        }
+    }
+
+    private fun createSpringAnim(
+        view: View,
+        property: DynamicAnimation.ViewProperty
+    ): SpringAnimation {
+        return SpringAnimation(view, property).setSpring(SpringForce().apply {
+            stiffness = STIFFNESS_LOW
+            dampingRatio = DAMPING_RATIO_LOW_BOUNCY
+        })
+    }
+
+    override fun onDestroy() {
+        super.onDestroy()
+        _binding = null
     }
 }
