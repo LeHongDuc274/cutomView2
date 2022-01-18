@@ -10,8 +10,8 @@
         android:supportsRtl="true"
         android:theme="@style/Theme.Balls">
         <activity
-            android:name=".MainActivity"
-            android:exported="true" >
+            android:name=".SpringBallActivity"
+            android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
 
@@ -19,10 +19,13 @@
             </intent-filter>
         </activity>
         <activity
-            android:name=".BallsActivity"
+            android:name=".MainActivity"
             android:exported="true">
 
         </activity>
+        <activity
+            android:name=".BallsActivity"
+            android:exported="true"></activity>
     </application>
 
 </manifest>
